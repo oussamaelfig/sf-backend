@@ -1,4 +1,13 @@
+import base64
+
+from app.schemas import MAX_PHOTO_BYTES
+
 BASE = "/api/v1/contacts"
+
+TINY_PNG = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
 
 
 def test_health(client):
@@ -144,3 +153,67 @@ def test_delete_contact(client, payload):
 def test_root_lists_entrypoints(client):
     body = client.get("/").json()
     assert body["contacts"] == BASE
+
+
+def test_create_contact_with_photo(client, payload):
+    response = client.post(BASE, json={**payload, "photo": TINY_PNG})
+    assert response.status_code == 201
+    assert response.json()["photo"] == TINY_PNG
+
+
+def test_photo_defaults_to_none(client, payload):
+    response = client.post(BASE, json=payload)
+    assert response.status_code == 201
+    assert response.json()["photo"] is None
+
+
+def test_photo_rejects_plain_url(client, payload):
+    response = client.post(BASE, json={**payload, "photo": "https://example.com/ada.png"})
+    assert response.status_code == 422
+
+
+def test_photo_rejects_unsupported_mime_type(client, payload):
+    svg = "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4="
+    response = client.post(BASE, json={**payload, "photo": svg})
+    assert response.status_code == 422
+
+
+def test_photo_rejects_invalid_base64(client, payload):
+    response = client.post(BASE, json={**payload, "photo": "data:image/png;base64,%%%not-base64%%%"})
+    assert response.status_code == 422
+
+
+def test_photo_rejects_oversized_payload(client, payload):
+    too_big = "data:image/png;base64," + base64.b64encode(b"x" * (MAX_PHOTO_BYTES + 1)).decode()
+    response = client.post(BASE, json={**payload, "photo": too_big})
+    assert response.status_code == 422
+
+
+def test_patch_preserves_photo(client, payload):
+    contact_id = client.post(BASE, json={**payload, "photo": TINY_PNG}).json()["id"]
+    response = client.patch(f"{BASE}/{contact_id}", json={"phone": "+1-000-000-0000"})
+    assert response.status_code == 200
+    assert response.json()["photo"] == TINY_PNG
+
+
+def test_patch_with_null_clears_photo(client, payload):
+    contact_id = client.post(BASE, json={**payload, "photo": TINY_PNG}).json()["id"]
+    response = client.patch(f"{BASE}/{contact_id}", json={"photo": None})
+    assert response.status_code == 200
+    assert response.json()["photo"] is None
+
+
+def test_put_carries_photo_through(client, payload):
+    contact_id = client.post(BASE, json={**payload, "photo": TINY_PNG}).json()["id"]
+    response = client.put(f"{BASE}/{contact_id}", json={**payload, "photo": TINY_PNG})
+    assert response.status_code == 200
+    assert response.json()["photo"] == TINY_PNG
+
+
+def test_put_without_photo_clears_it(client, payload):
+    # PUT is a full replace: clients (like the edit form) must echo the photo
+    # back or it is intentionally cleared, consistent with every other field.
+    contact_id = client.post(BASE, json={**payload, "photo": TINY_PNG}).json()["id"]
+    response = client.put(f"{BASE}/{contact_id}", json=payload)
+    assert response.status_code == 200
+    assert response.json()["photo"] is None
