@@ -23,11 +23,15 @@ requests on this repository.
 
 ## Pydantic / OpenAPI
 
-- Every schema field carries a `description`, and user-facing fields carry
-  `examples`. The OpenAPI guard tests in `tests/test_openapi.py` enforce
-  this; a missing description is a broken build.
-- Request-only validation must not run on response models: response
-  serialization is a hot path and must not repeat expensive checks.
+- Every schema field carries a `description`. The OpenAPI guard tests in
+  `tests/test_openapi.py` enforce this on `ContactRead` (a missing
+  description is a broken build); other schemas must follow the same
+  convention. Request schemas carry model-level examples, and key
+  user-facing fields (like `email`) carry field-level examples.
+- Request-only validation (format checks, decode-and-measure work) must
+  not be reused on response models: reads are a hot path. Response-specific
+  normalization (e.g. `ContactRead` restoring UTC tzinfo that SQLite
+  drops) is intentional and fine.
 - `ContactCreate.required` stays exactly `{first_name, last_name, email}`.
 
 ## Tests

@@ -7,8 +7,10 @@ Beyond the generic checks:
 1. Every new or changed Pydantic field must carry a description (and an
    example when user-facing) — tests/test_openapi.py fails builds without them.
 2. SQLAlchemy models must use 2.0 typed Mapped[]/mapped_column style.
-3. Flag validators that would run during response serialization; reads are a
-   hot path and must not repeat write-time validation.
+3. Flag request-only or expensive validation (format checks, base64 decoding)
+   reused by response models; reads are a hot path. Response-specific
+   normalization such as ContactRead restoring UTC tzinfo is intentional —
+   do not flag it.
 4. Flag scope creep and dead code aggressively; this repo values minimal diffs.
 """
 
