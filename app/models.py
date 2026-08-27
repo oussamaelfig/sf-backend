@@ -31,6 +31,11 @@ class Contact(Base):
 
     notes: Mapped[str | None] = mapped_column(Text)
 
+    # Profile photo stored inline as a base64 data URL. The database is
+    # in-memory, so there is no file store to point at; size is capped in the
+    # schema layer (see app.schemas.MAX_PHOTO_BYTES).
+    photo: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, server_default=func.now(), nullable=False
     )
