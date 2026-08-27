@@ -108,11 +108,6 @@ class ContactBase(BaseModel):
         examples=[_TINY_PNG],
     )
 
-    @field_validator("photo")
-    @classmethod
-    def _photo_is_bounded_image_data_url(cls, value: str | None) -> str | None:
-        return validate_photo(value)
-
 
 _FULL_EXAMPLE = {
     "first_name": "Ada",
@@ -132,13 +127,22 @@ _FULL_EXAMPLE = {
 _MINIMAL_EXAMPLE = {"first_name": "Grace", "last_name": "Hopper", "email": "grace@example.com"}
 
 
-class ContactCreate(ContactBase):
+class _ValidatesPhoto(BaseModel):
+    """Input-only photo validation, so reads never re-decode stored photos."""
+
+    @field_validator("photo", check_fields=False)
+    @classmethod
+    def _photo_is_bounded_image_data_url(cls, value: str | None) -> str | None:
+        return validate_photo(value)
+
+
+class ContactCreate(_ValidatesPhoto, ContactBase):
     """Body of `POST /api/v1/contacts`. Only the two names and email are required."""
 
     model_config = ConfigDict(json_schema_extra={"examples": [_FULL_EXAMPLE, _MINIMAL_EXAMPLE]})
 
 
-class ContactReplace(ContactBase):
+class ContactReplace(_ValidatesPhoto, ContactBase):
     """
     Body of `PUT /api/v1/contacts/{contact_id}`.
 
@@ -149,7 +153,7 @@ class ContactReplace(ContactBase):
     model_config = ConfigDict(json_schema_extra={"examples": [_FULL_EXAMPLE]})
 
 
-class ContactUpdate(BaseModel):
+class ContactUpdate(_ValidatesPhoto):
     """
     Body of `PATCH /api/v1/contacts/{contact_id}`.
 
@@ -182,11 +186,6 @@ class ContactUpdate(BaseModel):
         default=None,
         description="New profile photo as a base64 data URL; explicit null removes the photo.",
     )
-
-    @field_validator("photo")
-    @classmethod
-    def _photo_is_bounded_image_data_url(cls, value: str | None) -> str | None:
-        return validate_photo(value)
 
 
 class ContactRead(ContactBase):

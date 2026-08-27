@@ -210,6 +210,27 @@ def test_put_carries_photo_through(client, payload):
     assert response.json()["photo"] == TINY_PNG
 
 
+def test_read_schema_skips_photo_validation():
+    # Serialization must not re-decode stored photos (they were validated on
+    # write); ContactRead therefore accepts values the input schemas reject.
+    from datetime import datetime, timezone
+
+    from app.schemas import ContactRead
+
+    read = ContactRead.model_validate(
+        {
+            "id": 1,
+            "first_name": "Ada",
+            "last_name": "Lovelace",
+            "email": "ada@example.com",
+            "photo": "data:image/gif;base64,unvalidated-on-read",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+    )
+    assert read.photo == "data:image/gif;base64,unvalidated-on-read"
+
+
 def test_put_without_photo_clears_it(client, payload):
     # PUT is a full replace: clients (like the edit form) must echo the photo
     # back or it is intentionally cleared, consistent with every other field.
