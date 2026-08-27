@@ -107,8 +107,15 @@ also read):
 (case-insensitive). Everything else is optional.
 
 ```
-first_name, last_name, email, phone, company, job_title, addresses, notes
+first_name, last_name, email, phone, company, job_title, addresses, photo, notes
 ```
+
+`photo` is an optional profile photo, sent inline as a base64 data URL —
+`data:image/png;base64,...` (`png`, `jpeg`, or `webp`). The decoded payload is
+capped at 2 MiB; anything else — plain URLs, other formats, oversized or
+undecodable payloads — is rejected with `422`. Send `null` to remove the
+photo; clients fall back to initials. Inline storage is the deliberate fit
+for this API's in-memory database: there is no file store to point at.
 
 `addresses` is a list (up to 10) of typed postal addresses. Each entry has a
 required `type` — `Home`, `Work`, or `Other` — plus optional `street`, `city`,
