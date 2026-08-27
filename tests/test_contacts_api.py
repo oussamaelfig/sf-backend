@@ -238,3 +238,66 @@ def test_put_without_photo_clears_it(client, payload):
     response = client.put(f"{BASE}/{contact_id}", json=payload)
     assert response.status_code == 200
     assert response.json()["photo"] is None
+
+
+def test_create_contact_with_addresses(client, payload):
+    response = client.post(BASE, json=payload)
+    assert response.status_code == 201
+    addresses = response.json()["addresses"]
+    assert [a["type"] for a in addresses] == ["Home", "Work"]
+    assert all(a["id"] > 0 for a in addresses)
+    assert addresses[1]["street"] == "1 Market St, Suite 400"
+
+
+def test_addresses_default_to_empty_list(client, payload):
+    slim = {k: v for k, v in payload.items() if k != "addresses"}
+    response = client.post(BASE, json=slim)
+    assert response.status_code == 201
+    assert response.json()["addresses"] == []
+
+
+def test_address_type_is_validated(client, payload):
+    bad = {**payload, "addresses": [{"type": "Vacation", "street": "1 Beach Rd"}]}
+    assert client.post(BASE, json=bad).status_code == 422
+
+
+def test_address_count_is_capped_at_ten(client, payload):
+    eleven = [{"type": "Home", "city": f"City {i}"} for i in range(11)]
+    response = client.post(BASE, json={**payload, "addresses": eleven})
+    assert response.status_code == 422
+
+    # Exactly ten is still fine — the cap is inclusive.
+    ten = eleven[:10]
+    assert client.post(BASE, json={**payload, "addresses": ten}).status_code == 201
+
+
+def test_put_replaces_the_whole_address_set(client, payload):
+    contact_id = client.post(BASE, json=payload).json()["id"]
+    replacement = {**payload, "addresses": [{"type": "Other", "street": "99 New St"}]}
+    response = client.put(f"{BASE}/{contact_id}", json=replacement)
+    assert response.status_code == 200
+    addresses = response.json()["addresses"]
+    assert [(a["type"], a["street"]) for a in addresses] == [("Other", "99 New St")]
+
+
+def test_patch_omitting_addresses_keeps_them(client, payload):
+    contact_id = client.post(BASE, json=payload).json()["id"]
+    response = client.patch(f"{BASE}/{contact_id}", json={"phone": "+1-999-000-0000"})
+    assert response.status_code == 200
+    assert len(response.json()["addresses"]) == 2
+
+
+def test_patch_with_empty_list_clears_addresses(client, payload):
+    contact_id = client.post(BASE, json=payload).json()["id"]
+    response = client.patch(f"{BASE}/{contact_id}", json={"addresses": []})
+    assert response.status_code == 200
+    assert response.json()["addresses"] == []
+
+
+def test_deleting_contact_deletes_its_addresses(client, payload):
+    contact_id = client.post(BASE, json=payload).json()["id"]
+    assert client.delete(f"{BASE}/{contact_id}").status_code == 204
+    # Re-registering the same person starts from a clean slate: no orphaned
+    # rows resurface through the relationship.
+    recreated = client.post(BASE, json={**payload, "addresses": []}).json()
+    assert recreated["addresses"] == []

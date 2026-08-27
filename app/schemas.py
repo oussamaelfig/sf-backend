@@ -2,8 +2,11 @@ import base64
 import binascii
 import re
 from datetime import datetime, timezone
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, field_validator
+
+MAX_ADDRESSES_PER_CONTACT = 10
 
 MAX_PHOTO_BYTES = 2 * 1024 * 1024
 """Largest accepted photo, measured after base64 decoding."""
@@ -30,6 +33,68 @@ def validate_photo(value: str | None) -> str | None:
     if len(decoded) > MAX_PHOTO_BYTES:
         raise ValueError(f"photo must decode to at most {MAX_PHOTO_BYTES // (1024 * 1024)} MiB")
     return value
+
+
+class AddressType(str, Enum):
+    """The kinds of address a contact can have."""
+
+    HOME = "Home"
+    WORK = "Work"
+    OTHER = "Other"
+
+
+class AddressBase(BaseModel):
+    """One postal address. Contacts can have several, each with a type."""
+
+    type: AddressType = Field(
+        description="Kind of address: `Home`, `Work`, or `Other`.",
+        examples=["Home"],
+    )
+    street: str | None = Field(
+        default=None,
+        max_length=300,
+        description="Street address, including unit or suite.",
+        examples=["1 Market St, Suite 400"],
+    )
+    city: str | None = Field(default=None, max_length=120, description="City or locality.", examples=["San Francisco"])
+    state: str | None = Field(
+        default=None,
+        max_length=120,
+        description="State, province, or region.",
+        examples=["CA"],
+    )
+    postal_code: str | None = Field(
+        default=None,
+        max_length=20,
+        description="Postal or ZIP code.",
+        examples=["94105"],
+    )
+    country: str | None = Field(default=None, max_length=120, description="Country name.", examples=["USA"])
+
+
+class AddressCreate(AddressBase):
+    """An address as sent inside a contact create/replace/update body."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "type": "Work",
+                "street": "1 Market St, Suite 400",
+                "city": "San Francisco",
+                "state": "CA",
+                "postal_code": "94105",
+                "country": "USA",
+            }
+        }
+    )
+
+
+class AddressRead(AddressBase):
+    """A stored address, as returned inside every contact response."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(description="Server-assigned identifier.", examples=[10])
 
 
 class ContactBase(BaseModel):
@@ -73,26 +138,14 @@ class ContactBase(BaseModel):
         description="Role held at the company.",
         examples=["Mathematician"],
     )
-    address: str | None = Field(
-        default=None,
-        max_length=300,
-        description="Street address, including unit or suite.",
-        examples=["1 Market St, Suite 400"],
+    addresses: list[AddressCreate] = Field(
+        default_factory=list,
+        max_length=MAX_ADDRESSES_PER_CONTACT,
+        description=(
+            "Postal addresses, each typed `Home`, `Work`, or `Other`. "
+            "Writes replace the whole set; send an empty list to remove them all."
+        ),
     )
-    city: str | None = Field(default=None, max_length=120, description="City or locality.", examples=["San Francisco"])
-    state: str | None = Field(
-        default=None,
-        max_length=120,
-        description="State, province, or region.",
-        examples=["CA"],
-    )
-    postal_code: str | None = Field(
-        default=None,
-        max_length=20,
-        description="Postal or ZIP code.",
-        examples=["94105"],
-    )
-    country: str | None = Field(default=None, max_length=120, description="Country name.", examples=["USA"])
     notes: str | None = Field(
         default=None,
         description="Free-form notes about the contact. No length limit.",
@@ -116,11 +169,16 @@ _FULL_EXAMPLE = {
     "phone": "+1-415-555-0101",
     "company": "Analytical Engines",
     "job_title": "Mathematician",
-    "address": "1 Market St, Suite 400",
-    "city": "San Francisco",
-    "state": "CA",
-    "postal_code": "94105",
-    "country": "USA",
+    "addresses": [
+        {
+            "type": "Work",
+            "street": "1 Market St, Suite 400",
+            "city": "San Francisco",
+            "state": "CA",
+            "postal_code": "94105",
+            "country": "USA",
+        }
+    ],
     "notes": "Met at the SF hackathon.",
     "photo": _TINY_PNG,
 }
@@ -176,11 +234,14 @@ class ContactUpdate(_ValidatesPhoto):
     phone: str | None = Field(default=None, max_length=40, description="New phone number.")
     company: str | None = Field(default=None, max_length=200, description="New company.")
     job_title: str | None = Field(default=None, max_length=200, description="New job title.")
-    address: str | None = Field(default=None, max_length=300, description="New street address.")
-    city: str | None = Field(default=None, max_length=120, description="New city.")
-    state: str | None = Field(default=None, max_length=120, description="New state or region.")
-    postal_code: str | None = Field(default=None, max_length=20, description="New postal code.")
-    country: str | None = Field(default=None, max_length=120, description="New country.")
+    addresses: list[AddressCreate] | None = Field(
+        default=None,
+        max_length=MAX_ADDRESSES_PER_CONTACT,
+        description=(
+            "New full set of addresses. Omit to keep the current ones; "
+            "send an empty list to remove them all."
+        ),
+    )
     notes: str | None = Field(default=None, description="New notes; replaces the existing text.")
     photo: str | None = Field(
         default=None,
@@ -207,6 +268,10 @@ class ContactRead(ContactBase):
     )
 
     id: int = Field(description="Server-assigned identifier.", examples=[1])
+    addresses: list[AddressRead] = Field(
+        default_factory=list,
+        description="The contact's stored addresses, each typed Home, Work, or Other.",
+    )
     created_at: datetime = Field(
         description="UTC timestamp of when the contact was created.",
         examples=["2026-08-19T16:22:58.189507Z"],
