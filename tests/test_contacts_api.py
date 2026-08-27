@@ -261,6 +261,16 @@ def test_address_type_is_validated(client, payload):
     assert client.post(BASE, json=bad).status_code == 422
 
 
+def test_address_count_is_capped_at_ten(client, payload):
+    eleven = [{"type": "Home", "city": f"City {i}"} for i in range(11)]
+    response = client.post(BASE, json={**payload, "addresses": eleven})
+    assert response.status_code == 422
+
+    # Exactly ten is still fine — the cap is inclusive.
+    ten = eleven[:10]
+    assert client.post(BASE, json={**payload, "addresses": ten}).status_code == 201
+
+
 def test_put_replaces_the_whole_address_set(client, payload):
     contact_id = client.post(BASE, json=payload).json()["id"]
     replacement = {**payload, "addresses": [{"type": "Other", "street": "99 New St"}]}

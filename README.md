@@ -107,11 +107,35 @@ also read):
 (case-insensitive). Everything else is optional.
 
 ```
-first_name, last_name, email, phone, company, job_title,
-address, city, state, postal_code, country, notes
+first_name, last_name, email, phone, company, job_title, addresses, notes
 ```
 
-Responses add `id`, `full_name`, `created_at`, and `updated_at` (UTC).
+`addresses` is a list (up to 10) of typed postal addresses. Each entry has a
+required `type` — `Home`, `Work`, or `Other` — plus optional `street`, `city`,
+`state`, `postal_code`, and `country`. Writes replace the whole set: a `PUT`
+or a `PATCH` that includes `addresses` swaps in exactly what was sent, and an
+empty list removes them all. A `PATCH` without `addresses` leaves them alone.
+
+```json
+{
+  "first_name": "Ada",
+  "last_name": "Lovelace",
+  "email": "ada@example.com",
+  "addresses": [
+    {
+      "type": "Work",
+      "street": "1 Market St, Suite 400",
+      "city": "San Francisco",
+      "state": "CA",
+      "postal_code": "94105",
+      "country": "USA"
+    }
+  ]
+}
+```
+
+Responses add `id`, `full_name`, `created_at`, `updated_at` (UTC), and an
+`id` on every address.
 
 ### List query parameters
 

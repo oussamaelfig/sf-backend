@@ -75,6 +75,19 @@ class AddressBase(BaseModel):
 class AddressCreate(AddressBase):
     """An address as sent inside a contact create/replace/update body."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "type": "Work",
+                "street": "1 Market St, Suite 400",
+                "city": "San Francisco",
+                "state": "CA",
+                "postal_code": "94105",
+                "country": "USA",
+            }
+        }
+    )
+
 
 class AddressRead(AddressBase):
     """A stored address, as returned inside every contact response."""
