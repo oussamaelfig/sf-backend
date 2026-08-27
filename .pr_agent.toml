@@ -1,0 +1,23 @@
+# Qodo Merge (PR-Agent) repo-level configuration.
+# Tunes automatic reviews to this codebase's standards; see best_practices.md.
+
+[pr_reviewer]
+extra_instructions = """
+Beyond the generic checks:
+1. Every new or changed Pydantic field must carry a description (and an
+   example when user-facing) — tests/test_openapi.py fails builds without them.
+2. SQLAlchemy models must use 2.0 typed Mapped[]/mapped_column style.
+3. Flag validators that would run during response serialization; reads are a
+   hot path and must not repeat write-time validation.
+4. Flag scope creep and dead code aggressively; this repo values minimal diffs.
+"""
+
+[pr_code_suggestions]
+extra_instructions = """
+Prefer suggestions that keep the models -> schemas -> crud -> routers layering
+intact. Suggestions that add validation inside crud.py or fat logic inside
+routers will be declined.
+"""
+
+[pr_description]
+add_original_user_description = true
