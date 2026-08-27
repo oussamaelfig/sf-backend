@@ -177,3 +177,5 @@ app/
   routers/contacts.py REST endpoints
 tests/                API tests via FastAPI TestClient
 ```
+
+<!-- Hackathon fork: Roast My PR challenge (Qodo smoke test) -->
