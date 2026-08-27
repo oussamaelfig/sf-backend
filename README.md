@@ -144,6 +144,11 @@ empty list removes them all. A `PATCH` without `addresses` leaves them alone.
 Responses add `id`, `full_name`, `created_at`, `updated_at` (UTC), and an
 `id` on every address.
 
+Rendered by the companion frontend, those fields look like this — the `photo`
+as a circular avatar, each address badged with its `type`:
+
+![Contact detail rendering the photo and typed addresses](https://raw.githubusercontent.com/oussamaelfig/sf-frontend/trunk/docs/screenshots/contact-detail.png)
+
 ### List query parameters
 
 | Param | Default | Notes |
